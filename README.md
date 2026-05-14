@@ -28,6 +28,8 @@ find section-cited LCAP evidence.
 
 Tracked source files:
 
+- `app/` - deployable Next.js demo UI plus REST and MCP API routes for Vercel.
+- `lib/` - shared Neon opportunity queries, Chroma Cloud hybrid search, and domain helpers.
 - `scripts/fetch_cde_districts.py` - refreshes the California public district directory.
 - `scripts/download_lcaps.py` - discovers and downloads public LCAP PDFs.
 - `scripts/extract_lcaps.py` - parses LCAP PDFs into structured JSON.
@@ -39,6 +41,9 @@ Tracked source files:
 - `scripts/search_lcap_retrieval.py` - searches LCAP narratives with BM25, dense retrieval, and reranking.
 - `scripts/find_lcap_opportunities.py` - reusable account-opportunity query CLI for AE/GTM scans.
 - `scripts/lcap_mcp_server.py` - exposes local LCAP retrieval tools to MCP-capable agents.
+- `scripts/migrate-neon.ts` - copies local SQLite analytics/RAG outputs into Neon Postgres.
+- `scripts/migrate-chroma-cloud.ts` - uploads section-tagged narrative chunks into Chroma Cloud.
+- `scripts/verify-cloud.ts` - smoke-tests Neon row counts, opportunity queries, and Chroma search.
 - `scripts/analyze_*.py` - earlier exploratory research scripts over extracted LCAP data.
 - `skills/lcap-gtm-analyst/` - shareable Codex skill that teaches an agent how to route AE questions across Dashboard, LCAP, and narrative sources.
 - `data/cde/public_districts.*` - a checked-in CDE district snapshot used as a seed.
@@ -62,6 +67,11 @@ python3 -m venv .venv
 The public-data pipeline does not require API keys. Dense narrative retrieval
 uses `OPENAI_API_KEY` to create/query embeddings; BM25-only narrative search
 works without an API key.
+
+The deployable Vercel path uses Neon Postgres for deterministic analytics
+tables and Chroma Cloud for narrative retrieval with dense Qwen embeddings,
+sparse Splade embeddings, and RRF hybrid search. See
+`docs/vercel_chroma_neon_deployment.md` for migration and deployment steps.
 
 For scanned LCAP PDFs, install the `tesseract` binary if you want OCR fallback
 during narrative extraction. The extractor still works without it for normal
@@ -175,7 +185,7 @@ outputs/analytics/2025/dashboard_trends.csv
 The SQLite database is easiest for ad hoc analysis. The CSVs are useful for
 inspection, sharing, and loading into Postgres/DuckDB.
 
-### 6. Build Optional Narrative Retrieval
+### 6. Build Optional Local Narrative Retrieval
 
 After `analytics.sqlite` exists, extract section-tagged narrative chunks:
 
@@ -220,6 +230,30 @@ QA artifacts live under `outputs/rag/2025/qa/`. The validator writes
 `validation_summary.json`, issue CSVs, review samples, and a
 `no_chunk_documents.csv` audit for source PDFs that do not contain usable LCAP
 narrative bodies.
+
+### 7. Deploy The Cloud Demo/API
+
+After `analytics.sqlite` and `lcap_retrieval.sqlite` exist, migrate the data:
+
+```sh
+npm install
+npm run db:migrate
+npm run chroma:migrate -- --limit 100
+npm run chroma:migrate -- --reset
+npm run verify:cloud
+```
+
+Then deploy the Next.js app to Vercel. The cloud app exposes:
+
+```text
+/api/opportunities
+/api/search
+/api/districts/[cdsCode]
+/api/mcp
+```
+
+The MCP endpoint lets Codex, Claude Code, Cursor, or another MCP client use the
+same deterministic opportunity query and Chroma narrative retrieval tools.
 
 ## Example: Chronic Absenteeism GTM Report
 
