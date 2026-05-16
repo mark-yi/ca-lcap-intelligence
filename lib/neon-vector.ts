@@ -52,7 +52,8 @@ function metadataFromRow(row: Record<string, unknown>): NarrativeMetadata {
     action_number: (row.action_number as string | null) ?? null,
     page_start: numberOrNull(row.page_start),
     page_end: numberOrNull(row.page_end),
-    source_path: (row.source_path as string | null) ?? null
+    source_path: (row.source_path as string | null) ?? null,
+    pdf_url: (row.pdf_url as string | null) ?? null
   };
 }
 
@@ -146,6 +147,7 @@ export async function searchNarratives(input: SearchNarrativesInput): Promise<Na
           c.page_start,
           c.page_end,
           c.source_path,
+          c.pdf_url,
           r.score,
           row_number() over (partition by c.district_doc_id order by r.score desc) district_rank
         from ranked r

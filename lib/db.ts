@@ -9,7 +9,7 @@ import {
   outcomeTrendClause,
   topicConfig
 } from "./lcap-domain";
-import type { OpportunityRow, TopicAction } from "./types";
+import type { LcapDocumentSource, OpportunityRow, TopicAction } from "./types";
 
 type SqlClient = NeonQueryFunction<false, false>;
 
@@ -50,6 +50,97 @@ function rowToAction(row: Record<string, unknown>): TopicAction {
     source_pages: (row.source_pages as string | null) ?? null,
     ...classifyActionability(row.title, descriptionSnippet, row.total_funds)
   };
+}
+
+function numberOrNull(value: unknown): number | null {
+  if (value == null) {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function rowToLcapDocument(row: Record<string, unknown>): LcapDocumentSource {
+  return {
+    cds_code: String(row.cds_code ?? ""),
+    county: (row.county as string | null) ?? null,
+    district: (row.district as string | null) ?? null,
+    parsed_district_name: (row.parsed_district_name as string | null) ?? null,
+    district_name_match: numberOrNull(row.district_name_match),
+    school_year: (row.school_year as string | null) ?? null,
+    source_file: (row.source_file as string | null) ?? null,
+    source_path: (row.source_path as string | null) ?? null,
+    pdf_url: (row.pdf_url as string | null) ?? null,
+    goal_count: numberOrNull(row.goal_count),
+    metric_count: numberOrNull(row.metric_count),
+    action_count: numberOrNull(row.action_count),
+    extraction_warning_count: numberOrNull(row.extraction_warning_count),
+    extraction_error_count: numberOrNull(row.extraction_error_count)
+  };
+}
+
+export async function getLcapDocuments({
+  cdsCode,
+  district,
+  county,
+  schoolYear,
+  limit = 10
+}: {
+  cdsCode?: string;
+  district?: string;
+  county?: string;
+  schoolYear?: string;
+  limit?: number;
+}): Promise<LcapDocumentSource[]> {
+  if (!cdsCode && !district) {
+    throw new Error("Provide cdsCode or district.");
+  }
+
+  const params: unknown[] = [];
+  const filters = ["coalesce(ld.district_name_match, 1) != 0"];
+  if (cdsCode) {
+    filters.push(`ld.cds_code = ${pushParam(params, cdsCode)}`);
+  }
+  if (district) {
+    filters.push(`ld.district ilike ${pushParam(params, district.replaceAll("*", "%"))}`);
+  }
+  if (county) {
+    filters.push(`ld.county = ${pushParam(params, county)}`);
+  }
+  if (schoolYear) {
+    filters.push(`ld.school_year = ${pushParam(params, schoolYear)}`);
+  }
+  const limitRef = pushParam(params, Math.max(1, Math.min(limit, 25)));
+
+  const rows = (await getSql().query(
+    `
+      select
+        ld.cds_code,
+        ld.county,
+        ld.district,
+        ld.parsed_district_name,
+        ld.district_name_match,
+        ld.school_year,
+        ld.source_file,
+        ld.source_path,
+        ld.pdf_url,
+        ld.goal_count,
+        ld.metric_count,
+        ld.action_count,
+        ld.extraction_warning_count,
+        ld.extraction_error_count
+      from lcap_documents ld
+      where ${filters.join(" and ")}
+      order by
+        case when ld.pdf_url is not null and ld.pdf_url != '' then 0 else 1 end,
+        ld.school_year desc nulls last,
+        ld.district
+      limit ${limitRef}
+    `,
+    params
+  )) as Record<string, unknown>[];
+
+  return rows.map(rowToLcapDocument);
 }
 
 export async function fetchTopicActions({
@@ -348,6 +439,7 @@ export async function getDistrictContext(cdsCode: string, topic = "chronic_absen
     topic: normalizeTopic(topic),
     district: district ?? null,
     dashboard_outcome: dashboardOutcome ?? null,
+    lcap_documents: await getLcapDocuments({ cdsCode, limit: 3 }),
     topic_goals: topicGoals,
     topic_metrics: topicMetrics,
     broad_topic_actions: await fetchTopicActions({ cdsCode, topic, scope: "broad", limit: 6 }),

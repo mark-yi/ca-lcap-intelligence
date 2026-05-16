@@ -63,6 +63,16 @@ district_present
 cds_code_present
 ```
 
+Current MCP tool names include:
+
+```text
+lcap_find_opportunities
+lcap_search_narratives
+lcap_get_district_context
+lcap_get_lcap_document
+lcap_explain_account
+```
+
 Raw search query text and API key values are intentionally not sent.
 
 ## Browser Events
@@ -72,4 +82,3 @@ Raw search query text and API key values are intentionally not sent.
 - `opportunity_filter_changed`
 - `preset_query_selected`
 - `mcp_endpoint_copied`
-

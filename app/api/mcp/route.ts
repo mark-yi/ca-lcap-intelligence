@@ -1,7 +1,7 @@
 import { createMcpHandler } from "mcp-handler";
 import { z } from "zod";
 import { assertApiKey } from "@/lib/env";
-import { findOpportunities, getDistrictContext } from "@/lib/db";
+import { findOpportunities, getDistrictContext, getLcapDocuments } from "@/lib/db";
 import { searchNarratives } from "@/lib/neon-vector";
 import { topicConfig } from "@/lib/lcap-domain";
 import { captureUsageEvent, errorTelemetry, queryTelemetry } from "@/lib/usage-analytics";
@@ -215,6 +215,23 @@ const mcpHandler = createMcpHandler(
     );
 
     server.registerTool(
+      "lcap_get_lcap_document",
+      {
+        title: "Get LCAP Document Source",
+        description:
+          "Find public LCAP PDF source metadata for a district, including pdf_url, source file, school year, and extraction counts.",
+        inputSchema: {
+          cdsCode: z.string().optional(),
+          district: z.string().optional(),
+          county: z.string().optional(),
+          schoolYear: z.string().optional(),
+          limit: z.number().int().min(1).max(25).default(10)
+        }
+      },
+      async (input) => jsonContent(await getLcapDocuments(input))
+    );
+
+    server.registerTool(
       "lcap_explain_account",
       {
         title: "Explain LCAP Account",
@@ -235,6 +252,7 @@ const mcpHandler = createMcpHandler(
         });
         return jsonContent({
           district: context.district,
+          lcap_documents: context.lcap_documents,
           dashboard_outcome: context.dashboard_outcome,
           strict_topic_actions: context.strict_topic_actions,
           broad_topic_actions: context.broad_topic_actions,

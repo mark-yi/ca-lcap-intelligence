@@ -253,7 +253,8 @@ Then deploy the Next.js app to Vercel. The cloud app exposes:
 ```
 
 The MCP endpoint lets Codex, Claude Code, Cursor, or another MCP client use the
-same deterministic opportunity query and Neon pgvector narrative retrieval tools.
+same deterministic opportunity query, Neon pgvector narrative retrieval, account
+context, and public LCAP PDF source lookup tools.
 
 ## Example: Chronic Absenteeism GTM Report
 

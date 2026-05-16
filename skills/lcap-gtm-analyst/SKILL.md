@@ -50,6 +50,7 @@ If MCP is available, prefer:
 - `lcap_explain_account`
 - `lcap_search_narratives`
 - `lcap_get_district_context`
+- `lcap_get_lcap_document`
 
 Otherwise run the scripts directly in the repo.
 
